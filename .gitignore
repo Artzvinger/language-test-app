@@ -1,0 +1,28 @@
+# Игнорируем зависимости (и во фронте, и в бэке)
+**/node_modules/
+node_modules/
+
+# Игнорируем локальные базы данных SQLite
+**/backend/*.sqlite
+**/backend/*.db
+*.sqlite
+*.db
+
+# Игнорируем папки сборки фронтенда
+**/dist/
+**/dist-ssr/
+**/.local
+**/.cache/
+
+# Игнорируем логи ошибок
+*.log
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Игнорируем настройки редакторов кода и системы
+**/.vscode/*
+**/.idea/
+.DS_Store
+Thumbs.db
