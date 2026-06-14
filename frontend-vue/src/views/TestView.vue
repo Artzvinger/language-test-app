@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 
 interface Question {
@@ -7,6 +7,7 @@ interface Question {
   question: string
   type: string
   audio_url?: string
+  image_url?: string
   options: string[]
 }
 
@@ -22,6 +23,21 @@ const testFinished = ref(false)
 
 const name = ref('')
 const group = ref('')
+
+const timeLeft = ref(600)
+const totalTestTime = ref(600)
+const tabSwitchesCount = ref(0)
+let timerInterval: any = null
+
+const formattedTime = computed(() => {
+  const minutes = Math.floor(timeLeft.value / 60)
+  const seconds = timeLeft.value % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+})
+
+const timeSpent = computed(() => {
+  return totalTestTime.value - timeLeft.value
+})
 
 onBeforeRouteLeave((to, from, next) => {
   if (testFinished.value) {
@@ -39,9 +55,30 @@ const preventBack = () => {
   window.history.pushState(null, '', window.location.href)
 }
 
+// Функция отслеживания смены вкладок (Фиксация скрытная, без алертов)
+const handleVisibilityChange = () => {
+  if (document.hidden && !testFinished.value && !loading.value) {
+    tabSwitchesCount.value++ // Нарушение фиксируется в фоне
+  }
+}
+
+// Запуск таймера обратного отсчета
+const startTimer = () => {
+  timerInterval = setInterval(() => {
+    if (timeLeft.value > 0) {
+      timeLeft.value--
+    } else {
+      clearInterval(timerInterval)
+      alert('Время вышло! Тест будет автоматически отправлен.')
+      handleSubmit() // Автоотправка при 00:00
+    }
+  }, 1000)
+}
+
 onMounted(async () => {
   window.history.pushState(null, '', window.location.href)
   window.addEventListener('popstate', preventBack)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 
   if (!testId) return
   try {
@@ -54,11 +91,19 @@ onMounted(async () => {
       id: Number(q.id),
     }))
 
+    // Присваиваем время, пришедшее из базы данных бэкенда
+    if (data.time_limit) {
+      timeLeft.value = Number(data.time_limit)
+      totalTestTime.value = Number(data.time_limit)
+    }
+
     const initialAnswers: Record<number, string> = {}
     questions.value.forEach((q) => {
       initialAnswers[q.id] = ''
     })
     answers.value = initialAnswers
+
+    startTimer()
   } catch (e) {
     console.error('Ошибка загрузки:', e)
   } finally {
@@ -68,6 +113,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('popstate', preventBack)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (timerInterval) clearInterval(timerInterval)
 })
 
 const handleSelect = (qId: number, value: string) => {
@@ -91,6 +138,7 @@ const handleSubmit = async () => {
 
   if (isSubmitting.value) return
   isSubmitting.value = true
+  if (timerInterval) clearInterval(timerInterval)
 
   try {
     const res = await fetch('http://localhost:8000/results', {
@@ -101,6 +149,8 @@ const handleSubmit = async () => {
         name: name.value.trim(),
         group: group.value.trim(),
         answers: answers.value,
+        timeSpent: timeSpent.value,
+        tabSwitches: tabSwitchesCount.value, // Количество скрытно передается на бэкенд
       }),
     })
 
@@ -123,13 +173,24 @@ const handleSubmit = async () => {
   } catch (e: any) {
     alert('Ошибка при отправке: ' + e.message)
     isSubmitting.value = false
+    startTimer()
   }
 }
 </script>
 
 <template>
   <div class="test-page">
-    <h1 class="page-title">🧠 Тестирование</h1>
+    <div class="test-header">
+      <h1 class="page-title">🧠 Тестирование</h1>
+      <!-- Липкий блок таймера -->
+      <div
+        v-if="!loading && questions.length > 0"
+        class="timer-badge"
+        :class="{ 'timer-urgent': timeLeft < 60 }"
+      >
+        ⏱ Осталось времени: {{ formattedTime }}
+      </div>
+    </div>
 
     <div v-if="loading" class="status-msg">Загрузка вопросов...</div>
     <div v-else-if="questions.length === 0" class="status-msg">Тест пуст</div>
@@ -163,6 +224,7 @@ const handleSubmit = async () => {
 
         <p class="q-text">{{ q.question }}</p>
 
+        <!-- Модуль Аудио -->
         <div v-if="q.audio_url" class="audio-wrapper">
           <span class="audio-label">Прослушайте запись:</span>
           <audio
@@ -175,6 +237,20 @@ const handleSubmit = async () => {
           />
         </div>
 
+        <!-- Модуль Картинки -->
+        <div v-if="q.image_url" class="image-wrapper">
+          <img
+            :src="
+              q.image_url.startsWith('http')
+                ? q.image_url
+                : `http://localhost:8000/images/${q.image_url}`
+            "
+            alt="Иллюстрация к вопросу"
+            class="question-image"
+          />
+        </div>
+
+        <!-- Кнопки вариантов (закрытый тип) -->
         <div v-if="q.type === 'multiple' || q.type === 'mc'" class="options-grid">
           <button
             v-for="opt in q.options"
@@ -189,6 +265,7 @@ const handleSubmit = async () => {
           </button>
         </div>
 
+        <!-- Текстовое поле (открытый тип) -->
         <div v-else class="text-input-wrapper">
           <input
             type="text"

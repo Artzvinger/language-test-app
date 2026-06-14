@@ -20,6 +20,8 @@ interface Result {
   score: number
   total: number
   answers_json: string
+  time_spent?: number   // Время прохождения в секундах
+  tab_switches?: number // Количество уходов со страницы
   created_at: string
   expanded?: boolean
 }
@@ -40,7 +42,6 @@ const loadResults = async () => {
   try {
     const res = await fetch('http://localhost:8000/results')
     const data = await res.json()
-    // Добавляем поле expanded каждому результату для управления списком
     results.value = data.map((r: Result) => ({ ...r, expanded: false }))
   } catch (e) { console.error(e) }
 }
@@ -88,13 +89,21 @@ const uploadExcel = async (event: Event) => {
   }
 }
 
-// Функция для безопасного парсинга деталей
 const getDetails = (json: string): Detail[] => {
   try {
     return JSON.parse(json)
   } catch (e) {
     return []
   }
+}
+
+// Красивое форматирование времени для интерфейса
+const formatTimeSpent = (seconds?: number): string => {
+  if (seconds === undefined || seconds === null) return 'н/д'
+  if (seconds < 60) return `${seconds} сек.`
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return secs > 0 ? `${mins} мин. ${secs} сек.` : `${mins} мин.`
 }
 
 onMounted(() => {
@@ -146,7 +155,15 @@ onMounted(() => {
               <span class="student-name">{{ r.student_name }}</span>
               <span class="group-tag">{{ r.group_name }}</span>
             </div>
+
             <div class="res-stats">
+              <!-- Новое: Индикатор времени и нарушений -->
+              <span class="time-badge">⏱ {{ formatTimeSpent(r.time_spent) }}</span>
+
+              <span v-if="r.tab_switches && r.tab_switches > 0" class="warning-badge" title="Студент покидал вкладку теста">
+                ⚠️ Списывание: {{ r.tab_switches }}
+              </span>
+
               <span class="score-text">{{ r.score }} / {{ r.total }}</span>
               <span :class="['percent-badge', (r.score/r.total) >= 0.5 ? 'pass' : 'fail']">
                 {{ Math.round((r.score / (r.total || 1)) * 100) }}%
@@ -157,6 +174,17 @@ onMounted(() => {
 
           <transition name="fade">
             <div v-if="r.expanded" class="result-details">
+              <!-- Дополнительная строчка метаданных внутри раскрытого блока -->
+              <div class="meta-info-row">
+                <span><strong>Затраченное время:</strong> {{ formatTimeSpent(r.time_spent) }}</span>
+                <span style="margin-left: 20px;">
+                  <strong>Попыток покинуть страницу:</strong>
+                  <span :style="{ color: r.tab_switches ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
+                    {{ r.tab_switches || 0 }}
+                  </span>
+                </span>
+              </div>
+
               <div v-if="!r.answers_json" class="no-data">Детальные данные недоступны для старых записей</div>
               <div v-else v-for="(det, idx) in getDetails(r.answers_json)" :key="idx"
                    :class="['detail-row', det.is_correct ? 'correct-row' : 'wrong-row']">
