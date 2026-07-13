@@ -22,7 +22,7 @@ if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR);
 app.use('/audio', express.static(AUDIO_DIR));
 app.use('/images', express.static(IMAGES_DIR));
 
-// DB ИНИЦИАЛИЗАЦИЯ
+// инициализация бд
 const db = new sqlite3.Database('./database.db')
 
 db.serialize(() => {
@@ -70,10 +70,9 @@ const getAsync = (sql, params) => {
 	});
 };
 
-// UPLOAD CONFIG
 const upload = multer({ dest: 'uploads/' })
 
-// 1. ЗАГРУЗКА ТЕСТА (Excel)
+// Загрузка теста из Экселя
 app.post('/upload', upload.single('file'), async (req, res) => {
 	if (!req.file) return res.status(400).json({ message: 'Нет файла' });
 
@@ -82,14 +81,12 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 		const sheet = workbook.Sheets[workbook.SheetNames[0]];
 		const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-		// Окончательный и точный парсинг ячейки I2 (для формата 10:00 как строки или как времени)
-		let timeLimitSeconds = 1800; // По умолчанию 30 минут
+		let timeLimitSeconds = 1800;
 
 		try {
 			if (sheet && sheet['I2']) {
 				const cell = sheet['I2'];
 
-				// 1. Если Excel передал значение как числовую долю суток (cell.t === 'n')
 				if (cell.t === 'n' && cell.v < 1 && cell.v > 0) {
 					const secondsInDay = 86400;
 					const totalSeconds = Math.round(cell.v * secondsInDay);
@@ -97,26 +94,22 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 						timeLimitSeconds = totalSeconds;
 					}
 				} else {
-					// 2. Если считалось как текст "10:00", "10:00:00" или просто число "10"
 					const cellText = cell.w || (cell.v !== undefined && cell.v !== null ? cell.v.toString().trim() : "");
 
 					if (cellText.includes(':')) {
 						const parts = cellText.split(':');
 
-						// Если в строке два двоеточия (ЧЧ:ММ:СС), например "10:00:00" из-за автоформатирования Excel
 						if (parts.length === 3) {
 							const hours = parseInt(parts[0], 10) || 0;
 							const minutes = parseInt(parts[1], 10) || 0;
 							const seconds = parseInt(parts[2], 10) || 0;
 
-							// Защита: если в часах стоит 10 (потому что ввели 10:00, а Excel превратил в 10 часов)
 							if (hours > 0 && minutes === 0 && hours <= 24) {
-								timeLimitSeconds = hours * 60; // считаем эти "часы" минутами
+								timeLimitSeconds = hours * 60;
 							} else {
 								timeLimitSeconds = (hours * 3600) + (minutes * 60) + seconds;
 							}
 						} else {
-							// Если одно двоеточие (ММ:СС), например "10:00"
 							const minutes = parseInt(parts[0], 10);
 							const seconds = parseInt(parts[1], 10) || 0;
 
@@ -125,7 +118,6 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 							}
 						}
 					} else {
-						// Если вбили просто голое число минут, например "10"
 						const parsedTime = parseInt(cellText, 10);
 						if (!isNaN(parsedTime) && parsedTime > 0) {
 							timeLimitSeconds = parsedTime * 60;
@@ -158,6 +150,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
 			let audioUrl = val(7);
 			if (!audioUrl || audioUrl.trim() === "") audioUrl = null;
+
+			let correctAnswer = val(6);
 
 			let imageUrl = val(8);
 			if (!imageUrl || imageUrl.trim() === "") imageUrl = null;
@@ -195,7 +189,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 	}
 });
 
-// 2. ПОЛУЧЕНИЕ ТЕСТА (Для студента)
+// Получение теста для студента
 app.get('/tests/:id', async (req, res) => {
 	try {
 		const testInfo = await getAsync(`SELECT time_limit FROM tests WHERE id = ?`, [req.params.id]);
@@ -234,7 +228,7 @@ app.get('/tests/:id', async (req, res) => {
 	}
 });
 
-// 3. ПРОВЕРКА И СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ТЕСТИРОВАНИЯ
+// Проверка и сохранение результата
 app.post('/results', async (req, res) => {
 	const { testId, name, group, answers, timeSpent, tabSwitches } = req.body;
 	try {
@@ -286,7 +280,7 @@ app.post('/results', async (req, res) => {
 	}
 });
 
-// 4. ПОЛУЧЕНИЕ ВСЕХ РЕЗУЛЬТАТОВ (Для панели преподавателя)
+// Получение результата для преподавателя
 app.get('/results', (req, res) => {
 	db.all(`SELECT * FROM results ORDER BY id DESC`, [], (err, rows) => {
 		if (err) return res.status(500).json({ error: err.message });
@@ -294,12 +288,12 @@ app.get('/results', (req, res) => {
 	});
 });
 
-// 5. ПОЛУЧЕНИЕ СПИСКА ТЕСТОВ
+// Получение списка тестов
 app.get('/tests', (req, res) => {
 	db.all(`SELECT * FROM tests ORDER BY id DESC`, [], (err, rows) => res.json(rows));
 });
 
-// 6. УДАЛЕНИЕ ТЕСТА
+// Удаление теста
 app.delete('/tests/:id', async (req, res) => {
 	const id = req.params.id;
 	try {
@@ -312,7 +306,7 @@ app.delete('/tests/:id', async (req, res) => {
 	}
 });
 
-// 7. УДАЛЕНИЕ РЕЗУЛЬТАТА
+// Удаление результата
 app.delete('/results/:id', (req, res) => {
 	db.run(`DELETE FROM results WHERE id = ?`, [req.params.id], () => res.json({ message: 'Результат удален' }));
 });

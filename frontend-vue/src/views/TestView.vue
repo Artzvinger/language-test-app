@@ -55,14 +55,12 @@ const preventBack = () => {
   window.history.pushState(null, '', window.location.href)
 }
 
-// Функция отслеживания смены вкладок (Фиксация скрытная, без алертов)
 const handleVisibilityChange = () => {
   if (document.hidden && !testFinished.value && !loading.value) {
-    tabSwitchesCount.value++ // Нарушение фиксируется в фоне
+    tabSwitchesCount.value++
   }
 }
 
-// Запуск таймера обратного отсчета
 const startTimer = () => {
   timerInterval = setInterval(() => {
     if (timeLeft.value > 0) {
@@ -91,7 +89,6 @@ onMounted(async () => {
       id: Number(q.id),
     }))
 
-    // Присваиваем время, пришедшее из базы данных бэкенда
     if (data.time_limit) {
       timeLeft.value = Number(data.time_limit)
       totalTestTime.value = Number(data.time_limit)
@@ -237,20 +234,6 @@ const handleSubmit = async () => {
           />
         </div>
 
-        <!-- Модуль Картинки -->
-        <div v-if="q.image_url" class="image-wrapper">
-          <img
-            :src="
-              q.image_url.startsWith('http')
-                ? q.image_url
-                : `http://localhost:8000/images/${q.image_url}`
-            "
-            alt="Иллюстрация к вопросу"
-            class="question-image"
-          />
-        </div>
-
-        <!-- Кнопки вариантов (закрытый тип) -->
         <div v-if="q.type === 'multiple' || q.type === 'mc'" class="options-grid">
           <button
             v-for="opt in q.options"
@@ -265,7 +248,6 @@ const handleSubmit = async () => {
           </button>
         </div>
 
-        <!-- Текстовое поле (открытый тип) -->
         <div v-else class="text-input-wrapper">
           <input
             type="text"

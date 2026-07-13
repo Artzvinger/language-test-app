@@ -20,8 +20,8 @@ interface Result {
   score: number
   total: number
   answers_json: string
-  time_spent?: number   // Время прохождения в секундах
-  tab_switches?: number // Количество уходов со страницы
+  time_spent?: number
+  tab_switches?: number
   created_at: string
   expanded?: boolean
 }
@@ -97,7 +97,6 @@ const getDetails = (json: string): Detail[] => {
   }
 }
 
-// Красивое форматирование времени для интерфейса
 const formatTimeSpent = (seconds?: number): string => {
   if (seconds === undefined || seconds === null) return 'н/д'
   if (seconds < 60) return `${seconds} сек.`
@@ -174,7 +173,6 @@ onMounted(() => {
 
           <transition name="fade">
             <div v-if="r.expanded" class="result-details">
-              <!-- Дополнительная строчка метаданных внутри раскрытого блока -->
               <div class="meta-info-row">
                 <span><strong>Затраченное время:</strong> {{ formatTimeSpent(r.time_spent) }}</span>
                 <span style="margin-left: 20px;">
