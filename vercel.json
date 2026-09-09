@@ -10,8 +10,12 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "backend/server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "frontend-vue/dist/$1"
+      "dest": "frontend-vue/dist/index.html"
     }
   ]
 }
