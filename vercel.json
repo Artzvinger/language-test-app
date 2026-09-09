@@ -1,11 +1,5 @@
 {
-  "name": "language-test-app",
-  "version": 2,
   "builds": [
-    {
-      "src": "backend/server.js",
-      "use": "@vercel/node"
-    },
     {
       "src": "frontend-vue/package.json",
       "use": "@vercel/static-build",
@@ -15,10 +9,6 @@
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/server.js"
-    },
     {
       "src": "/(.*)",
       "dest": "frontend-vue/dist/$1"
