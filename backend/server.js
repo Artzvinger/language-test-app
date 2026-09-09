@@ -1,238 +1,225 @@
-const express = require('express')
-const multer = require('multer')
-const xlsx = require('xlsx')
-const cors = require('cors')
-const fs = require('fs')
-const path = require('path')
-const sqlite3 = require('sqlite3').verbose()
+import express from 'express';
+import multer from 'multer';
+import xlsx from 'xlsx';
+import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
 
-const app = express()
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-app.use(cors())
-app.use(express.json())
+const app = express();
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const AUDIO_DIR = path.join(__dirname, 'audio');
-const IMAGES_DIR = path.join(__dirname, 'images');
+// ============ ПОДКЛЮЧЕНИЕ К SUPABASE ============
+const supabase = createClient(
+	process.env.SUPABASE_URL || 'https://lhxjaafxgtdzyouthhkb.supabase.co',
+	process.env.SUPABASE_KEY || 'sb_publishable_AgG8giq9t6wIK7mYx2gZ2w_rTfqwUOW'
+);
 
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
-if (!fs.existsSync(AUDIO_DIR)) fs.mkdirSync(AUDIO_DIR);
-if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR);
+app.use(cors());
+app.use(express.json());
 
-app.use('/audio', express.static(AUDIO_DIR));
-app.use('/images', express.static(IMAGES_DIR));
+// ============ НАСТРОЙКА MULTER ============
+const upload = multer({
+	dest: '/tmp/uploads/',
+	limits: { fileSize: 10 * 1024 * 1024 }
+});
 
-// инициализация бд
-const db = new sqlite3.Database('./database.db')
-
-db.serialize(() => {
-	db.run(`CREATE TABLE IF NOT EXISTS tests (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, time_limit INTEGER)`)
-	db.run(`CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY AUTOINCREMENT, test_id INTEGER, question TEXT, type TEXT, audio_url TEXT, image_url TEXT, correct_answer TEXT)`)
-	db.run(`CREATE TABLE IF NOT EXISTS options (id INTEGER PRIMARY KEY AUTOINCREMENT, question_id INTEGER, text TEXT)`)
-	db.run(`CREATE TABLE IF NOT EXISTS results (
-												   id INTEGER PRIMARY KEY AUTOINCREMENT,
-		                                           test_id INTEGER,
-		                                           student_name TEXT,
-		                                           group_name TEXT,
-		                                           score INTEGER,
-		                                           total INTEGER,
-		                                           answers_json TEXT,
-		                                           time_spent INTEGER,
-		                                           tab_switches INTEGER,
-		                                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	        )`)
-})
-
-const runAsync = (sql, params) => {
-	return new Promise((resolve, reject) => {
-		db.run(sql, params, function (err) {
-			if (err) reject(err);
-			else resolve(this);
-		});
-	});
+// ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
+const getTestById = async (id) => {
+	const { data, error } = await supabase
+		.from('tests')
+		.select('*')
+		.eq('id', id)
+		.single();
+	if (error) throw error;
+	return data;
 };
 
-const allAsync = (sql, params) => {
-	return new Promise((resolve, reject) => {
-		db.all(sql, params, (err, rows) => {
-			if (err) reject(err);
-			else resolve(rows);
-		});
-	});
+const getQuestionsByTestId = async (testId) => {
+	const { data, error } = await supabase
+		.from('questions')
+		.select('*')
+		.eq('test_id', testId);
+	if (error) throw error;
+	return data;
 };
 
-const getAsync = (sql, params) => {
-	return new Promise((resolve, reject) => {
-		db.get(sql, params, (err, row) => {
-			if (err) reject(err);
-			else resolve(row);
-		});
-	});
+const getOptionsByQuestionId = async (questionId) => {
+	const { data, error } = await supabase
+		.from('options')
+		.select('*')
+		.eq('question_id', questionId);
+	if (error) throw error;
+	return data;
 };
 
-const upload = multer({ dest: 'uploads/' })
+// ============ API РОУТЫ ============
 
-// Загрузка теста из Экселя
+// 1. Загрузка теста из Excel
 app.post('/upload', upload.single('file'), async (req, res) => {
-	if (!req.file) return res.status(400).json({ message: 'Нет файла' });
+	if (!req.file) {
+		return res.status(400).json({ message: 'Нет файла' });
+	}
 
 	try {
 		const workbook = xlsx.readFile(req.file.path);
 		const sheet = workbook.Sheets[workbook.SheetNames[0]];
 		const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
+		// Парсим время (ячейка I2)
 		let timeLimitSeconds = 1800;
-
 		try {
 			if (sheet && sheet['I2']) {
 				const cell = sheet['I2'];
-
 				if (cell.t === 'n' && cell.v < 1 && cell.v > 0) {
-					const secondsInDay = 86400;
-					const totalSeconds = Math.round(cell.v * secondsInDay);
-					if (totalSeconds > 0) {
-						timeLimitSeconds = totalSeconds;
-					}
+					timeLimitSeconds = Math.round(cell.v * 86400);
 				} else {
-					const cellText = cell.w || (cell.v !== undefined && cell.v !== null ? cell.v.toString().trim() : "");
-
+					const cellText = cell.w || cell.v?.toString()?.trim() || "";
 					if (cellText.includes(':')) {
 						const parts = cellText.split(':');
-
 						if (parts.length === 3) {
-							const hours = parseInt(parts[0], 10) || 0;
-							const minutes = parseInt(parts[1], 10) || 0;
-							const seconds = parseInt(parts[2], 10) || 0;
-
-							if (hours > 0 && minutes === 0 && hours <= 24) {
-								timeLimitSeconds = hours * 60;
-							} else {
-								timeLimitSeconds = (hours * 3600) + (minutes * 60) + seconds;
-							}
+							timeLimitSeconds = (parseInt(parts[0]) || 0) * 3600 +
+								(parseInt(parts[1]) || 0) * 60 +
+								(parseInt(parts[2]) || 0);
 						} else {
-							const minutes = parseInt(parts[0], 10);
-							const seconds = parseInt(parts[1], 10) || 0;
-
-							if (!isNaN(minutes) && minutes > 0) {
-								timeLimitSeconds = (minutes * 60) + seconds;
-							}
+							timeLimitSeconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
 						}
 					} else {
-						const parsedTime = parseInt(cellText, 10);
-						if (!isNaN(parsedTime) && parsedTime > 0) {
-							timeLimitSeconds = parsedTime * 60;
-						}
+						const parsed = parseInt(cellText);
+						if (!isNaN(parsed) && parsed > 0) timeLimitSeconds = parsed * 60;
 					}
 				}
-				console.log(`⏱ Итоговый таймер сохранен в БД: ${timeLimitSeconds} сек. (${Math.floor(timeLimitSeconds / 60)} мин.)`);
 			}
-		} catch (timerError) {
-			console.error("Ошибка при чтении ячейки таймера I2, взято время по умолчанию:", timerError.message);
+		} catch (e) {
+			console.log('⏱ Использовано время по умолчанию');
 		}
 
+		// 1️⃣ Сохраняем тест в Supabase
 		const testTitle = req.body.title || 'Новый тест';
-		const testResult = await runAsync(`INSERT INTO tests (title, time_limit) VALUES (?, ?)`, [testTitle, timeLimitSeconds]);
-		const testId = testResult.lastID;
+		const { data: testData, error: testError } = await supabase
+			.from('tests')
+			.insert([{ title: testTitle, time_limit: timeLimitSeconds }])
+			.select();
 
+		if (testError) throw testError;
+		const testId = testData[0].id;
+
+		// 2️⃣ Сохраняем вопросы и опции
 		for (let i = 1; i < data.length; i++) {
 			const row = data[i];
 			if (!row || row.length < 2) continue;
 
 			const val = (idx) => (row[idx] !== undefined && row[idx] !== null) ? row[idx].toString().trim() : "";
-
 			const questionText = val(1);
 			if (!questionText) continue;
 
 			const rawOptions = [val(2), val(3), val(4), val(5)];
 			const filteredOptions = rawOptions.filter(opt => opt.length > 0);
-
 			const type = filteredOptions.length > 0 ? 'multiple' : 'text';
 
-			let audioUrl = val(7);
-			if (!audioUrl || audioUrl.trim() === "") audioUrl = null;
-
+			let audioUrl = val(7) || null;
+			let imageUrl = val(8) || null;
 			let correctAnswer = val(6);
 
-			let imageUrl = val(8);
-			if (!imageUrl || imageUrl.trim() === "") imageUrl = null;
-
 			if (type === 'multiple') {
-				const marker = correctAnswer.toUpperCase();
 				const letterMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-				if (letterMap.hasOwnProperty(marker)) {
-					correctAnswer = filteredOptions[letterMap[marker]] || correctAnswer;
+				const letter = correctAnswer.toUpperCase();
+				if (letterMap.hasOwnProperty(letter)) {
+					correctAnswer = filteredOptions[letterMap[letter]] || correctAnswer;
 				}
 			}
 
-			const qResult = await runAsync(
-				`INSERT INTO questions (test_id, question, type, audio_url, image_url, correct_answer) VALUES (?, ?, ?, ?, ?, ?)`,
-				[testId, questionText, type, audioUrl, imageUrl, correctAnswer]
-			);
+			// Сохраняем вопрос
+			const { data: questionData, error: questionError } = await supabase
+				.from('questions')
+				.insert([{
+					test_id: testId,
+					question: questionText,
+					type: type,
+					audio_url: audioUrl,
+					image_url: imageUrl,
+					correct_answer: correctAnswer
+				}])
+				.select();
 
-			const questionId = qResult.lastID;
+			if (questionError) throw questionError;
+			const questionId = questionData[0].id;
+
+			// Сохраняем опции
 			for (const opt of filteredOptions) {
-				await runAsync(`INSERT INTO options (question_id, text) VALUES (?, ?)`, [questionId, opt]);
+				const { error: optionError } = await supabase
+					.from('options')
+					.insert([{
+						question_id: questionId,
+						text: opt
+					}]);
+				if (optionError) throw optionError;
 			}
 		}
 
+		// Удаляем временный файл
 		if (fs.existsSync(req.file.path)) {
 			fs.unlinkSync(req.file.path);
 		}
 
-		res.json({ message: 'Тест успешно загружен' });
+		res.json({
+			message: 'Тест успешно загружен!',
+			testId: testId
+		});
+
 	} catch (e) {
-		console.error("Критическая ошибка при импорте Excel:", e);
+		console.error("Ошибка:", e);
 		if (req.file && fs.existsSync(req.file.path)) {
 			fs.unlinkSync(req.file.path);
 		}
-		res.status(500).json({ error: 'Ошибка сервера при парсинге файла: ' + e.message });
+		res.status(500).json({ error: 'Ошибка: ' + e.message });
 	}
 });
 
-// Получение теста для студента
+// 2. Получение теста для студента
 app.get('/tests/:id', async (req, res) => {
 	try {
-		const testInfo = await getAsync(`SELECT time_limit FROM tests WHERE id = ?`, [req.params.id]);
-		if (!testInfo) return res.status(404).json({ message: 'Тест не найден' });
+		const testId = parseInt(req.params.id);
 
-		const rows = await allAsync(`
-			SELECT q.id, q.question, q.type, q.audio_url, q.image_url, o.text AS option_text
-			FROM questions q
-					 LEFT JOIN options o ON q.id = o.question_id
-			WHERE q.test_id = ?
-			ORDER BY q.id ASC`, [req.params.id]);
+		const test = await getTestById(testId);
+		if (!test) return res.status(404).json({ message: 'Тест не найден' });
 
-		if (rows.length === 0) return res.status(404).json({ message: 'В тесте нет вопросов' });
+		const questions = await getQuestionsByTestId(testId);
+		if (questions.length === 0) {
+			return res.status(404).json({ message: 'В тесте нет вопросов' });
+		}
 
-		const map = new Map();
-		rows.forEach(row => {
-			if (!map.has(row.id)) {
-				map.set(row.id, {
-					id: row.id,
-					question: row.question,
-					type: row.type,
-					audio_url: row.audio_url,
-					image_url: row.image_url,
-					options: []
-				});
-			}
-			if (row.option_text) map.get(row.id).options.push(row.option_text);
-		});
+		const questionsWithOptions = await Promise.all(questions.map(async (q) => {
+			const options = await getOptionsByQuestionId(q.id);
+			return {
+				id: q.id,
+				question: q.question,
+				type: q.type,
+				audio_url: q.audio_url,
+				image_url: q.image_url,
+				options: options.map(o => o.text)
+			};
+		}));
 
 		res.json({
-			time_limit: testInfo.time_limit,
-			questions: Array.from(map.values())
+			time_limit: test.time_limit,
+			questions: questionsWithOptions
 		});
+
 	} catch (e) {
 		res.status(500).json({ error: e.message });
 	}
 });
 
-// Проверка и сохранение результата
+// 3. Проверка и сохранение результата
 app.post('/results', async (req, res) => {
 	const { testId, name, group, answers, timeSpent, tabSwitches } = req.body;
+
 	try {
-		const questions = await allAsync(`SELECT * FROM questions WHERE test_id = ?`, [testId]);
+		const questions = await getQuestionsByTestId(parseInt(testId));
 		let score = 0;
 		const details = {};
 		const fullReport = [];
@@ -240,8 +227,7 @@ app.post('/results', async (req, res) => {
 		questions.forEach(q => {
 			const cleanStr = (str) => {
 				if (!str) return "";
-				return str
-					.toString()
+				return str.toString()
 					.replace(/[\u200B-\u200D\uFEFF]/g, '')
 					.replace(/\s+/g, ' ')
 					.trim()
@@ -250,7 +236,6 @@ app.post('/results', async (req, res) => {
 
 			const userAns = cleanStr(answers[q.id]);
 			const correctAns = cleanStr(q.correct_answer);
-
 			const isCorrect = userAns === correctAns;
 			if (isCorrect) score++;
 
@@ -269,47 +254,113 @@ app.post('/results', async (req, res) => {
 			});
 		});
 
-		await runAsync(
-			`INSERT INTO results (test_id, student_name, group_name, score, total, answers_json, time_spent, tab_switches) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			[Number(testId), name, group, score, questions.length, JSON.stringify(fullReport), timeSpent || 0, tabSwitches || 0]
-		);
+		const { data, error } = await supabase
+			.from('results')
+			.insert([{
+				test_id: parseInt(testId),
+				student_name: name || 'Студент',
+				group_name: group || 'Группа',
+				score: score,
+				total: questions.length,
+				answers_json: JSON.stringify(fullReport),
+				time_spent: timeSpent || 0,
+				tab_switches: tabSwitches || 0
+			}])
+			.select();
 
-		res.json({ score, total: questions.length, details });
+		if (error) throw error;
+
+		res.json({
+			score,
+			total: questions.length,
+			details,
+			resultId: data[0].id
+		});
+
 	} catch (e) {
 		res.status(500).json({ error: e.message });
 	}
 });
 
-// Получение результата для преподавателя
-app.get('/results', (req, res) => {
-	db.all(`SELECT * FROM results ORDER BY id DESC`, [], (err, rows) => {
-		if (err) return res.status(500).json({ error: err.message });
-		res.json(rows);
-	});
-});
-
-// Получение списка тестов
-app.get('/tests', (req, res) => {
-	db.all(`SELECT * FROM tests ORDER BY id DESC`, [], (err, rows) => res.json(rows));
-});
-
-// Удаление теста
-app.delete('/tests/:id', async (req, res) => {
-	const id = req.params.id;
+// 4. Получение всех результатов
+app.get('/results', async (req, res) => {
 	try {
-		await runAsync(`DELETE FROM options WHERE question_id IN (SELECT id FROM questions WHERE test_id = ?)`, [id]);
-		await runAsync(`DELETE FROM questions WHERE test_id = ?`, [id]);
-		await runAsync(`DELETE FROM tests WHERE id = ?`, [id]);
+		const { data, error } = await supabase
+			.from('results')
+			.select('*')
+			.order('id', { ascending: false });
+
+		if (error) throw error;
+		res.json(data);
+	} catch (e) {
+		res.status(500).json({ error: e.message });
+	}
+});
+
+// 5. Получение списка тестов
+app.get('/tests', async (req, res) => {
+	try {
+		const { data, error } = await supabase
+			.from('tests')
+			.select('*')
+			.order('id', { ascending: false });
+
+		if (error) throw error;
+		res.json(data);
+	} catch (e) {
+		res.status(500).json({ error: e.message });
+	}
+});
+
+// 6. Удаление теста
+app.delete('/tests/:id', async (req, res) => {
+	const id = parseInt(req.params.id);
+
+	try {
+		// Удаляем опции
+		await supabase
+			.from('options')
+			.delete()
+			.in('question_id', supabase.from('questions').select('id').eq('test_id', id));
+
+		// Удаляем вопросы
+		await supabase
+			.from('questions')
+			.delete()
+			.eq('test_id', id);
+
+		// Удаляем результаты
+		await supabase
+			.from('results')
+			.delete()
+			.eq('test_id', id);
+
+		// Удаляем тест
+		await supabase
+			.from('tests')
+			.delete()
+			.eq('id', id);
+
 		res.json({ message: 'Тест удален' });
 	} catch (e) {
 		res.status(500).json({ error: e.message });
 	}
 });
 
-// Удаление результата
-app.delete('/results/:id', (req, res) => {
-	db.run(`DELETE FROM results WHERE id = ?`, [req.params.id], () => res.json({ message: 'Результат удален' }));
+// 7. Удаление результата
+app.delete('/results/:id', async (req, res) => {
+	try {
+		const { error } = await supabase
+			.from('results')
+			.delete()
+			.eq('id', parseInt(req.params.id));
+
+		if (error) throw error;
+		res.json({ message: 'Результат удален' });
+	} catch (e) {
+		res.status(500).json({ error: e.message });
+	}
 });
 
-const PORT = 8000;
-app.listen(PORT, () => console.log(`🚀 Сервер готов: http://localhost:${PORT}`));
+// ============ ЭКСПОРТ ДЛЯ VERCEL ============
+export default app;
