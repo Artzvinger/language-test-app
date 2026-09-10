@@ -1,6 +1,7 @@
 # Игнорируем зависимости (и во фронте, и в бэке)
 **/node_modules/
 node_modules/
+.env
 
 # Игнорируем локальные базы данных SQLite
 **/backend/*.sqlite
