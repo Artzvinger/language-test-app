@@ -53,7 +53,7 @@ const loginTeacher = () => {
         <input
           type="password"
           v-model="password"
-          placeholder="Пароль администратора"
+          placeholder="Пароль администратора: 1234"
           class="styled-input"
           @keyup.enter="loginTeacher"
         />
