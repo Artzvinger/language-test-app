@@ -15,12 +15,17 @@
 Добавить скриншоты
 
 ### Вход и выбор роли
+<img width="1919" height="925" alt="Screenshot_1" src="https://github.com/user-attachments/assets/09d9a6c9-4bf5-4d3f-836e-b76880c90bf2" />
 
 ### Панель преподавателя
+<img width="1906" height="930" alt="Screenshot_2" src="https://github.com/user-attachments/assets/2ad6b289-1ae7-4f16-bd05-8c659d44d638" />
 
 ### Прохождение теста студентом
+<img width="1906" height="928" alt="Screenshot_3" src="https://github.com/user-attachments/assets/39544dd6-6c75-47a6-b3d5-a15c8681b159" />
+<img width="1907" height="926" alt="Screenshot_4" src="https://github.com/user-attachments/assets/7fdfc74c-6ab2-48d5-9029-d05e68d7a0ff" />
 
 ### Результаты и разбор ответов
+<img width="1907" height="933" alt="Screenshot_5" src="https://github.com/user-attachments/assets/d0b6ee74-9237-48f3-a26c-4005778e1cdc" />
 
 ---
 
