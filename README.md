@@ -12,7 +12,7 @@
 
 ## 📸 Скриншоты
 
-> Изображения кладите в `docs/screenshots/` (имена — ниже).
+Добавить скриншоты
 
 ### Вход и выбор роли
 <img width="1080" alt="login" src="docs/screenshots/login.png" />
@@ -94,7 +94,3 @@ npm start
 cd frontend
 npm run dev
 ```
-
-Откройте **http://localhost:5173**.
-
-> Вход преподавателя — пароль из `ADMIN_PASSWORD`. При первом запуске бэкенд сам создаёт `backend/data/app.db` (SQLite). Для Vercel задайте `DB_PROVIDER=supabase` + `SUPABASE_URL`/`SUPABASE_KEY` (схема таблиц — в [supabase/schema.sql](supabase/schema.sql)).
