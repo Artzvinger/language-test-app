@@ -12,8 +12,6 @@
 
 ## 📸 Скриншоты
 
-Добавить скриншоты
-
 ### Вход и выбор роли
 <img width="1919" height="925" alt="Screenshot_1" src="https://github.com/user-attachments/assets/09d9a6c9-4bf5-4d3f-836e-b76880c90bf2" />
 
