@@ -22,10 +22,10 @@
 
 ### Прохождение теста студентом
 <img width="1906" height="928" alt="Screenshot_3" src="https://github.com/user-attachments/assets/39544dd6-6c75-47a6-b3d5-a15c8681b159" />
-<img width="1907" height="926" alt="Screenshot_4" src="https://github.com/user-attachments/assets/7fdfc74c-6ab2-48d5-9029-d05e68d7a0ff" />
 
 ### Результаты и разбор ответов
 <img width="1907" height="933" alt="Screenshot_5" src="https://github.com/user-attachments/assets/d0b6ee74-9237-48f3-a26c-4005778e1cdc" />
+<img width="1907" height="926" alt="Screenshot_4" src="https://github.com/user-attachments/assets/7fdfc74c-6ab2-48d5-9029-d05e68d7a0ff" />
 
 ---
 
