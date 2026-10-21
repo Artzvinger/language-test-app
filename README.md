@@ -15,16 +15,12 @@
 Добавить скриншоты
 
 ### Вход и выбор роли
-<img width="1080" alt="login" src="docs/screenshots/login.png" />
 
 ### Панель преподавателя
-<img width="1090" alt="teacher-panel" src="docs/screenshots/teacher-panel.png" />
 
 ### Прохождение теста студентом
-<img width="1090" alt="student-test" src="docs/screenshots/student-test.png" />
 
 ### Результаты и разбор ответов
-<img width="1360" alt="teacher-results" src="docs/screenshots/teacher-results.png" />
 
 ---
 
