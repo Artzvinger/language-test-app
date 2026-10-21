@@ -1,10 +1,10 @@
 import { parseId } from '../lib/utils.js';
-import * as testsRepository from '../repositories/tests.repository.js';
+import * as repositories from '../repositories/index.js';
 import * as testService from '../services/test.service.js';
 
 export const listTestsHandler = async (req, res) => {
 	try {
-		const data = await testsRepository.listTests();
+		const data = await repositories.listTests();
 
 		return res.json(data);
 	} catch (error) {

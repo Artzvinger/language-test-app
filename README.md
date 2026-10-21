@@ -47,7 +47,7 @@
 
 - **Frontend:** React 19, TypeScript, Vite 6, React Router 7, Feature-Sliced Design, CSS
 - **Backend:** Node.js 24, Express 5, Multer, xlsx, cors, dotenv
-- **База данных:** Supabase (PostgreSQL)
+- **База данных:** SQLite (локально) / Supabase — PostgreSQL (Vercel)
 - **Деплой:** Vercel
 
 ---
@@ -64,14 +64,17 @@ cd backend && npm install
 cd ../frontend && npm install
 ```
 
-**Переменные окружения.** Создайте `backend/.env`:
+**Переменные окружения.** Локально по умолчанию используется **SQLite** — внешняя БД не нужна. Создайте `backend/.env`:
 
 ```env
-SUPABASE_URL=https://<ваш-проект>.supabase.co
-SUPABASE_KEY=<publishable-ключ>
 ADMIN_PASSWORD=<пароль-преподавателя>
 ADMIN_TOKEN_SECRET=<длинная-случайная-строка>
-CORS_ORIGINS=http://localhost:5173,https://<ваш-домен>.vercel.app
+CORS_ORIGINS=http://localhost:5173
+
+# Только для Supabase (Vercel):
+# DB_PROVIDER=supabase
+# SUPABASE_URL=https://<проект>.supabase.co
+# SUPABASE_KEY=<publishable-ключ>
 ```
 
 и `frontend/.env`:
@@ -94,4 +97,4 @@ npm run dev
 
 Откройте **http://localhost:5173**.
 
-> Вход преподавателя — пароль из `ADMIN_PASSWORD`. Таблицы `tests`, `questions`, `options`, `results` должны существовать в Supabase.
+> Вход преподавателя — пароль из `ADMIN_PASSWORD`. При первом запуске бэкенд сам создаёт `backend/data/app.db` (SQLite). Для Vercel задайте `DB_PROVIDER=supabase` + `SUPABASE_URL`/`SUPABASE_KEY` (схема таблиц — в [supabase/schema.sql](supabase/schema.sql)).

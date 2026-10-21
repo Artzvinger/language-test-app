@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabase.js';
+import { getSupabase } from '../lib/supabase.js';
 
 export const createResult = async (result) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('results')
 		.insert([result])
 		.select()
@@ -15,7 +15,7 @@ export const createResult = async (result) => {
 };
 
 export const listResults = async () => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('results')
 		.select('*')
 		.order('id', { ascending: false });
@@ -28,7 +28,7 @@ export const listResults = async () => {
 };
 
 export const deleteResult = async (id) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('results')
 		.delete()
 		.eq('id', id);
@@ -39,7 +39,7 @@ export const deleteResult = async (id) => {
 };
 
 export const deleteResultsByTestId = async (testId) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('results')
 		.delete()
 		.eq('test_id', testId);

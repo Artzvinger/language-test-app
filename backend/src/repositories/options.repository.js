@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabase.js';
+import { getSupabase } from '../lib/supabase.js';
 
 export const listOptionsByQuestionId = async (questionId) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('options')
 		.select('*')
 		.eq('question_id', questionId)
@@ -15,7 +15,7 @@ export const listOptionsByQuestionId = async (questionId) => {
 };
 
 export const createOptions = async (options) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('options')
 		.insert(options);
 
@@ -25,7 +25,7 @@ export const createOptions = async (options) => {
 };
 
 export const deleteOptionsByQuestionIds = async (questionIds) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('options')
 		.delete()
 		.in('question_id', questionIds);

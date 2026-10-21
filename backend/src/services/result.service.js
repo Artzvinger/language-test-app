@@ -1,5 +1,5 @@
 import { cleanString } from '../lib/utils.js';
-import * as resultsRepository from '../repositories/results.repository.js';
+import * as repositories from '../repositories/index.js';
 
 export const gradeAnswers = (questions, answers) => {
 	const safeAnswers = answers || {};
@@ -53,7 +53,7 @@ export const saveResult = async ({
 	timeSpent,
 	tabSwitches
 }) => {
-	return resultsRepository.createResult({
+	return repositories.createResult({
 		test_id: testId,
 		student_name: name?.toString().trim() || 'Студент',
 		group_name: group?.toString().trim() || 'Группа',

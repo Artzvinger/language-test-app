@@ -1,11 +1,11 @@
-import { supabase } from '../lib/supabase.js';
+import { getSupabase } from '../lib/supabase.js';
 
 export const findTestById = async (id) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('tests')
 		.select('*')
 		.eq('id', id)
-		.single();
+		.maybeSingle();
 
 	if (error) {
 		throw error;
@@ -15,7 +15,7 @@ export const findTestById = async (id) => {
 };
 
 export const listTests = async () => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('tests')
 		.select('*')
 		.order('id', { ascending: false });
@@ -28,7 +28,7 @@ export const listTests = async () => {
 };
 
 export const createTest = async ({ title, time_limit }) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('tests')
 		.insert([{ title, time_limit }])
 		.select()
@@ -42,7 +42,7 @@ export const createTest = async ({ title, time_limit }) => {
 };
 
 export const deleteTest = async (id) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('tests')
 		.delete()
 		.eq('id', id);

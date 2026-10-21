@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabase.js';
+import { getSupabase } from '../lib/supabase.js';
 
 export const listQuestionsByTestId = async (testId) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('questions')
 		.select('*')
 		.eq('test_id', testId)
@@ -15,7 +15,7 @@ export const listQuestionsByTestId = async (testId) => {
 };
 
 export const listQuestionIdsByTestId = async (testId) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('questions')
 		.select('id')
 		.eq('test_id', testId);
@@ -28,7 +28,7 @@ export const listQuestionIdsByTestId = async (testId) => {
 };
 
 export const createQuestion = async (question) => {
-	const { data, error } = await supabase
+	const { data, error } = await getSupabase()
 		.from('questions')
 		.insert([question])
 		.select()
@@ -42,7 +42,7 @@ export const createQuestion = async (question) => {
 };
 
 export const deleteQuestionsByTestId = async (testId) => {
-	const { error } = await supabase
+	const { error } = await getSupabase()
 		.from('questions')
 		.delete()
 		.eq('test_id', testId);

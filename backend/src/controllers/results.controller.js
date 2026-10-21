@@ -1,6 +1,5 @@
 import { parseId } from '../lib/utils.js';
-import * as questionsRepository from '../repositories/questions.repository.js';
-import * as resultsRepository from '../repositories/results.repository.js';
+import * as repositories from '../repositories/index.js';
 import * as resultService from '../services/result.service.js';
 
 export const submitResultHandler = async (req, res) => {
@@ -22,10 +21,9 @@ export const submitResultHandler = async (req, res) => {
 			});
 		}
 
-		const questions =
-			await questionsRepository.listQuestionsByTestId(
-				parsedTestId
-			);
+		const questions = await repositories.listQuestionsByTestId(
+			parsedTestId
+		);
 
 		if (questions.length === 0) {
 			return res.status(404).json({
@@ -66,7 +64,7 @@ export const submitResultHandler = async (req, res) => {
 
 export const listResultsHandler = async (req, res) => {
 	try {
-		const data = await resultsRepository.listResults();
+		const data = await repositories.listResults();
 
 		return res.json(data);
 	} catch (error) {
@@ -88,7 +86,7 @@ export const deleteResultHandler = async (req, res) => {
 			});
 		}
 
-		await resultsRepository.deleteResult(id);
+		await repositories.deleteResult(id);
 
 		console.log(`🗑 Результат ${id} удалён`);
 

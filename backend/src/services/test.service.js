@@ -1,23 +1,19 @@
-import * as testsRepository from '../repositories/tests.repository.js';
-import * as questionsRepository from '../repositories/questions.repository.js';
-import * as optionsRepository from '../repositories/options.repository.js';
-import * as resultsRepository from '../repositories/results.repository.js';
+import * as repositories from '../repositories/index.js';
 
 export const getTestDetail = async (id) => {
-	const test = await testsRepository.findTestById(id);
+	const test = await repositories.findTestById(id);
 
 	if (!test) {
 		return null;
 	}
 
-	const questions = await questionsRepository.listQuestionsByTestId(id);
+	const questions = await repositories.listQuestionsByTestId(id);
 
 	const questionsWithOptions = await Promise.all(
 		questions.map(async (question) => {
-			const options =
-				await optionsRepository.listOptionsByQuestionId(
-					question.id
-				);
+			const options = await repositories.listOptionsByQuestionId(
+				question.id
+			);
 
 			return {
 				id: question.id,
@@ -43,13 +39,13 @@ export const createTestWithQuestions = async ({
 	timeLimitSeconds,
 	questions
 }) => {
-	const testData = await testsRepository.createTest({
+	const testData = await repositories.createTest({
 		title,
 		time_limit: timeLimitSeconds
 	});
 
 	if (!testData) {
-		throw new Error('Supabase не вернул созданный тест');
+		throw new Error('База данных не вернула созданный тест');
 	}
 
 	const testId = testData.id;
@@ -59,7 +55,7 @@ export const createTestWithQuestions = async ({
 	let questionsCreated = 0;
 
 	for (const question of questions) {
-		const questionData = await questionsRepository.createQuestion({
+		const questionData = await repositories.createQuestion({
 			test_id: testId,
 			question: question.question,
 			type: question.type,
@@ -75,7 +71,7 @@ export const createTestWithQuestions = async ({
 		const questionId = questionData.id;
 
 		if (question.options.length > 0) {
-			await optionsRepository.createOptions(
+			await repositories.createOptions(
 				question.options.map((text) => ({
 					question_id: questionId,
 					text
@@ -92,18 +88,17 @@ export const createTestWithQuestions = async ({
 };
 
 export const deleteTestCascade = async (id) => {
-	const questions =
-		await questionsRepository.listQuestionIdsByTestId(id);
+	const questions = await repositories.listQuestionIdsByTestId(id);
 
 	const questionIds = (questions || []).map(
 		(question) => question.id
 	);
 
 	if (questionIds.length > 0) {
-		await optionsRepository.deleteOptionsByQuestionIds(questionIds);
+		await repositories.deleteOptionsByQuestionIds(questionIds);
 	}
 
-	await questionsRepository.deleteQuestionsByTestId(id);
-	await resultsRepository.deleteResultsByTestId(id);
-	await testsRepository.deleteTest(id);
+	await repositories.deleteQuestionsByTestId(id);
+	await repositories.deleteResultsByTestId(id);
+	await repositories.deleteTest(id);
 };

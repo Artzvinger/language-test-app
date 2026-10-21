@@ -1,11 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import env from '../config/env.js';
 
-if (!env.supabaseUrl || !env.supabaseKey) {
-	console.error('❌ Не заданы SUPABASE_URL и SUPABASE_KEY');
-}
+let client = null;
 
-export const supabase = createClient(
-	env.supabaseUrl || '',
-	env.supabaseKey || ''
-);
+// Ленивая инициализация: в режиме SQLite Supabase не нужен вовсе.
+export const getSupabase = () => {
+	if (!client) {
+		if (!env.supabaseUrl || !env.supabaseKey) {
+			throw new Error('Не заданы SUPABASE_URL и SUPABASE_KEY');
+		}
+
+		client = createClient(env.supabaseUrl, env.supabaseKey);
+	}
+
+	return client;
+};

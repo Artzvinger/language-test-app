@@ -24,16 +24,6 @@ export function QuestionCard({
 
       <p className="q-text">{q.question}</p>
 
-      {q.image_url && (
-        <div className="image-wrapper">
-          <img
-            src={q.image_url}
-            alt="Иллюстрация к вопросу"
-            className="question-image"
-          />
-        </div>
-      )}
-
       {q.audio_url && (
         <div className="audio-wrapper">
           <span className="audio-label">Прослушайте запись:</span>
